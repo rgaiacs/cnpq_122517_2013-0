@@ -1,0 +1,267 @@
+\documentclass[12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{indentfirst}
+%\usepackage{amsfonts}
+\usepackage[portuges,brazil]{babel}
+\usepackage[top=3cm, bottom=3cm, left=2cm, right=2cm]{geometry}
+\usepackage{amsmath}
+\usepackage{mathptmx}
+\usepackage{setspace}
+\onehalfspacing
+
+\newtheorem{method}{Método}[section]
+
+\begin{document}
+\title{Implementação paralela da heurística de reordenamento
+de Cuthill-McKee reversa}
+\maketitle
+
+{\bf
+\begin{center}
+Projeto de Pesquisa -- Iniciação Científica\\
+Instituto de Matemática, Estatística e Computação Científica\\
+Universidade Estadual de Campinas -- UNICAMP
+\end{center}
+}
+
+{\bf Bolsista:} Raniere Gaia Costa da Silva
+
+{\bf Orientador:} Aurelio Ribeiro Leite de Oliveira
+
+\begin{abstract}
+Cada iteração de um método de pontos interiores envolve a solução
+de um ou mais sistemas lineares. Este é o passo mais
+caro destes métodos do ponto de vista computacional.
+Em aplicações reais esses sistemas quase
+sempre possuem dimensões elevadas e alto grau de esparsidade.
+Usualmente métodos diretos são utilizados para resolver esses sistemas.
+A abordagem mais utilizada nas implementações existentes é a fatoração
+de Cholesky no sistema de equações normais.
+No entanto, em problemas de grande porte, é necessária o reordenamento
+eficiente da matriz do sistema linear para evitar o enchimento excessivo
+na fatoração. A grande maioria das implementações existentes utiliza
+o reordenamento clássico pela heurística de mínimo grau.
+Recentemente, surgiram diversas novas heurísticas e outras foram revitalizadas.Dentre essas, a de Cuthill-McKee reversa
+se destaca como uma das mais promissoras.
+Neste projeto serão comparadas as heurísticas de mínimo grau e Cuthill-McKee
+reversa tanto com relação ao tempo total de reordenamento quanto
+na quantidade de enchimento obtida por cada uma. Os testes serão realizados
+no contexto dos métodos de pontos interiores para programação linear
+onde uma sequência de sistemas lineares com o mesmo reordenamento
+deve ser resolvida.
+\end{abstract}
+
+\section{Introdução}
+
+Desde o surgimento dos métodos de pontos interiores para programação linear,
+códigos computacionais sofisticados baseados nessas idéias vêm se firmando como
+alternativas eficientes para solução de problemas de grande porte com
+estruturas genéricas \cite{ARVK89,BCO06,CMWW96,Go96,LMS92,OS03,OL91}.
+
+Cada iteração de um método de pontos interiores envolve a solução
+de um ou mais sistemas lineares \cite{Go96,LMS92,Me92b}. Este é o passo mais
+caro destes métodos do ponto de vista computacional.
+Em aplicações reais esses sistemas quase
+sempre possuem dimensões elevadas e alto grau de esparsidade.
+
+Usualmente métodos diretos são utilizados para resolver esses sistemas.
+A abordagem mais utilizada nas implementações existentes é a fatoração
+de Cholesky no sistema de equações normais \cite{ARVK89,CMWW96,Go96,LMS92}.
+
+Para calcular a fatoração de Cholesky, é necessário inicialmente reordenar
+as linhas da matriz de restrições, o que equivale a reordenar de forma
+simétrica linhas e colunas da matriz dos sistemas lineares a serem resolvido.
+Este reordenamento é realizado uma única vez e utilizado para todos os
+sistemas lineares.
+
+A heurítica de mínimo grau \cite{GL89} é a mais utilizada na grande maioria de
+implementações existentes. Diferentes heurísticas começaram a ser utilizadas
+mais recentemente como Cuthill-McKee reverso \cite{CM69}, Mínimo grau
+múltiplo \cite{Li85}, Mínimo grau aproximado \cite{ADD96}, {\it Nested
+Dissection}) \cite{RH98}.
+
+Este projeto consiste na implementação eficiente da heurítica de reordenamento
+Cuthill-McKee reversa e comparar sua eficiência para problemas de grande
+porte com a heurística clássica de mínimo grau. A comparação será feita
+com respeito ao tempo computacional para realizar o reordenamento e também
+com relação ao número de elementos obtido na fatoração da matriz reordenada.
+Os detalhes desta proposta são apresentados nas seções a seguir.
+
+\section{Programação Linear}
+
+\subsection{O Problema na Forma Padrão}
+
+Na descrição deste projeto consideraremos o problema de programação linear na
+forma padrão:
+\begin{displaymath}
+\begin{array}{lll}
+\mbox{minimizar} & c^tx & \\
+\mbox{sujeito a} & Ax = b, & x \ge 0,
+\end{array}
+\end{displaymath}
+onde $A$ $m \times n$  é uma matriz de posto completo $m$
+e $c$, $b$ e $x$ são vetores colunas de dimensão apropriada.
+Associado a este problema temos o problema dual:
+\begin{displaymath}
+\begin{array}{lll}
+\mbox{maximizar} & b^ty &\\
+\mbox{sujeito a} & A^ty + z = c, & z \ge 0,
+\end{array}
+\end{displaymath}
+onde $y$ é um vetor coluna de dimensão $m$ de variáveis livres e $z$ é o vetor
+coluna de dimensão $n$ de variáveis de folga duais. O {\it gap} dual é
+dado por $\gamma= c^tx - b^ty$ que se reduz a $\gamma= x^tz$ para
+pontos primais e duais factíveis.
+
+A direção afim nos métodos de pontos interiores primais-duais é dada por
+\cite{MAR90,Wr96}:
+\begin{eqnarray} \label{BS}
+\left(\begin{array}{llc}
+0 & I & A^{t}\\
+Z & X & 0\\
+A & 0 & 0\\
+\end{array} \right)
+\left(\begin{array}{r}
+\Delta \tilde{x}\\
+\Delta \tilde{z}\\
+\Delta \tilde{y}
+\end{array} \right) &=
+\left(\begin{array}{c}
+r_d\\
+r_a\\
+r_p
+\end{array} \right)
+\end{eqnarray}
+onde $X = diag(x)$, $Z = diag(z)$ e os resíduos são dados por $r_p = b - Ax$,
+$r_d = c - A^ty - z$, $r_a = -XZe$ e $e$ representa o vetor de uns.
+
+Eliminando as variáveis $\Delta \tilde{z}$ de (\ref{BS}) obtemos o sistema
+aumentado:
+\begin{eqnarray} \label{GAS}
+\left(\begin{array}{rc}
+-D & A^t\\
+ A & O
+\end{array} \right)
+\left(\begin{array}{r}
+\Delta \tilde{x}\\
+\Delta \tilde{y}
+\end{array} \right) &=
+\left(\begin{array}{c}
+r_1\\
+r_p
+\end{array} \right)
+\end{eqnarray}
+onde $D = X^{-1}Z$.\\
+
+A forma mais utilizada para resolver (\ref{GAS}) consiste em reduzir o
+sistema através de eliminação das variáveis  $\Delta \tilde{x}$ a um sistema
+simétrico definido positivo com a matriz de equações normais
+$AD^{-1}A^t$ e aplicar então a fatoração de Cholesky
+\cite{ARVK89,CMWW96,Go96}.
+
+A extensão das idéias apresentadas neste projeto para problemas com
+variáveis canalizadas é imediata e não será tratada explicitamente na
+discussão a seguir embora venham a ser consideradas nas pesquisas.
+
+\subsection{Reordenamento da Matriz do Sistema de Equações Normais}
+
+Nos métodos diretos o sistema de equações normais
+$AD^{-1}A^t$ é reordenado através de uma matriz de
+permutações $Q$ obtendo $QAD^{-1}A^tQ^t$ onde espera-se
+que a matriz reordenada produza menos enchimento que a
+matriz original durante a fatoração.
+
+Existem diversas heurísticas de reordenamento na literatura.
+Algumas delas são utilizadas com mais frequência nos métodos
+de pontos interiores. Dentre elas destacamos a heurística
+Cuthill-McKee reverso \cite{CM69}.
+
+Esta heurística de reordenamento tem como objetivo
+principal reduzir a largura de banda de uma matriz simétrica. A largura
+de banda é dada pela maior distância de um elemento não nulo à diagonal
+principal. Desta forma, os elementos são movidos para posições mais
+próximas da diagonal.
+Uma vez que esta propriedade é mantida na fatoração de
+Cholesky correspondente, o reordenamento tende a reduzir o enchimento.
+Isto torna o algoritmo muito usado na prática. Não há garantia de se encontrar
+a menor largura de banda possível, mas isso frequentemente ocorre.
+
+Na proposta de Cuthill-McKee é realizada uma minimização local da
+largura de banda correspondente a cada linha para reduzir a largura de
+banda da matriz como um todo.
+
+Posteriormente, George \cite{Geo71} propôs que o reordenamento obtido pelo
+reverso de Cuthill-McKee fosse utilizado pois este último
+frequentemente, supera o original em termos de redução do {\it profile},
+embora mantenha a mesma largura de banda. Esse reordenamento é conhecido
+como Cuthill-McKee reverso.
+
+Considerando um grafo conectado, o problema de reduzir a largura de banda
+é convertido em encontrar uma renumeração dos vértices do grafo tal que
+a diferença entre os índices seja a mínima.
+
+\section{Objetivos}
+
+O objetivo deste projeto consiste no estudo e implementação eficiente
+da heurística de Cuthill-McKee reversa e sua integração com a implementação
+já existente dos métodos de pontos interiores PCx \cite{CMWW96} que utiliza a
+heurística
+de reordenamento de mínimo grau. Testes computacionais exaustivos serão
+realizados com problemas de programação linear de grande porte.
+
+A comparação dos resultados obtidos será realizada quanto ao tempo de
+reordenamento, quantidade de elementos não nulos na fatoração de Cholesky
+e na influência destes no tempo de solução do problema de programação linear
+pelo método de pontos interiores.
+
+\section{Etapas a serem Cumpridas e Cronograma}
+
+\subsection{Etapas}
+
+Os objetivos propostos neste projeto podem ser alcançados pela realização das
+seguintes etapas:
+\begin{enumerate}
+\item Revisão bibliográfica. O aluno deverá ler artigos e capítulos de livros
+relacionados com o tema do projeto aprofundando e ampliando seus
+conhecimentos em relação às heurísticasd e reordenamento.
+\item Estudo aprofundado de heurística de Cuthill-McKee reversa e implementação
+preliminar.
+\item Implementações finais e testes. O aluno deverá implementar, objetivando
+a maior eficiência possível, as idéias desenvolvidas nas etapas anteriores
+e realizar extensivos testes computacionais com problemas reais de grande porte
+comparando as heurísticas com relação ao tempo de processamento e memória
+quantidade de memória necessária na fatoração de Cholesky.
+\end{enumerate}
+
+\subsection{Cronograma}
+
+A tabela a seguir resume as atividades a serem realizadas durante
+o programa de iniciação científica.
+
+\begin{table}
+\caption{Cronograma}
+\begin{tabular}{|r|c|c|c|} \hline
+Bimestre & 1 & 2 & 3\\
+\hline
+$1^{\underline{o}}$ & X &   &   \\
+\hline
+$2^{\underline{o}}$ & X &   &   \\
+\hline
+$3^{\underline{o}}$ & X & X &   \\
+\hline
+$4^{\underline{o}}$ &   & X &   \\
+\hline
+$5^{\underline{o}}$ &   & X & X \\
+\hline
+$6^{\underline{o}}$ &   &   & X \\
+\hline
+\end{tabular}
+\end{table}
+
+Pretende-se divulgar os resultados deste trabalho em um congresso nacional
+da área.
+
+\bibliographystyle{siam}
+\bibliography{references}
+
+\end{document}
