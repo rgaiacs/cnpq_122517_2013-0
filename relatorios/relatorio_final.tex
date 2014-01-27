@@ -1,5 +1,7 @@
 \documentclass[12pt,a4paper]{article}
 \input{pacotes.tex}
+\usepackage{biblatex}
+\addbibresource{referencias.bib}
 \begin{document}
 % Identificação
 %     Projeto
@@ -7,7 +9,8 @@
 %     Orientador
 %     Local de execução
 %     Vigência
-\title{Implementa\c{c}\~{a}o eficiente da heur\'{i}stica de reordenamento de Cuthill-McKee Reversa}
+\title{Implementação paralela da heurística de reordenamento
+de Cuthill-McKee reversa}
 \author{Raniere Silva\footnote{\url{ra092767@ime.unicamp.br}} \\ Orientando
 \and Aurelio Oliveira\footnote{\url{aurelio@ime.unicamp.br}} \\ Orientador}
 \maketitle
@@ -18,12 +21,12 @@
 %     Introdução ao assunto: deve ser bastante geral
 %     Informações da literatura: tornam a introdução mais específica ao assunto
 %     Colocação da questão estudada: especificar os objetivos do trabalho
-%     Atividades desenvolvidas: dar uma idéia geral de como foi desenvolvido o
+%     Atividades desenvolvidas: dar uma ideia geral de como foi desenvolvido o
 %     trabalho
 \input{introducao@relatorio_final.tex}
 
 % Materiais e Métodos
-%     Materiais: citar os equipamentos, reagentes e outros ítens utilizados,
+%     Materiais: citar os equipamentos, reagentes e outros tons utilizados,
 %     informando fabricante ou fornecedor
 %     Métodos: descrever os procedimentos detalhados, que possam ser
 %     reproduzidos com os materiais e equipamentos descritos
@@ -58,7 +61,7 @@
 
 % Perspectivas de continuidade ou desdobramento do trabalho
 %     O projeto foi concluído ou será continuado?
-%\input{desdobramentos@relatorio_final.tex}
+\input{desdobramentos@relatorio_final.tex}
 
 % Outras atividades de interesse universitário
 %     Descrever participações em congressos, cursos extra-curriculares, etc
@@ -68,7 +71,6 @@
 \appendix
 % Apoio
 %     Citar as agências que financiaram o projeto
-\input{gprof.tex}
 \input{info.tex}
 % \input{faq@relatorio_final.tex}
 % \input{implementacoes@relatorio_final.tex}
@@ -78,6 +80,5 @@
 %     IMPORTANTE
 %     - Não liste se não citar.
 %     - Não cite se não listar.
-\bibliographystyle{alpha}
-\bibliography{referencias}
+\printbibliography[title=Referências]
 \end{document}

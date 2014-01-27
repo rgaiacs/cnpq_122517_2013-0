@@ -1,11 +1,9 @@
 \section{Introdução}
 Neste trabalho revisitou-se a heurística de reordenamento Cuthill-McKee Reversa,
 proposta em 1969, que busca um reordenamento para matrizes esparsas que reduza a
-largura de banda destas. O autor deste trabalho implementou a heurística
-revisitada, testou com várias bibliotecas (dentre elas a ``Netlib LP'' e
-``Meszaros'') e concluiu, pelo menos para os problemas testados, que a
-heurística Cuthill-McKee Reversa é inferior a heurística de mínimo grau
-múltiplo por gerar mais elementos não nulos na decomposição de Cholesky.
+largura de banda destas. O autor deste trabalho estudou em uma versão parelela
+dessa heurística e iniciou uma implementação dessa versão em C utilizando a
+biblioteca Open MPI.
 
 \section{Métodos de Pontos Interiores Primal-Dual}
 Consideremos o Problema de Programação Linear na Forma Padrão (PPLFP):
@@ -633,6 +631,7 @@ Um resumo dos principais conceitos é dado a seguir:
     (direita).}
     \label{fig:graph2level_struct}
 \end{figure}
+
 \subsection{Método Cuthill-McKee Reverso}
 Cuthill e McKee \cite{Cuthill:1969:ReducingBandwidth} propuseram uma heurística de
 reordenação, ver algoritmo abaixo, cujo objetivo principal é reduzir a largura
@@ -649,12 +648,12 @@ de banda de uma matriz simétrica $A \in \mathbb{R}^{n \times n}$ cujo grafo
         \STATE $i \longleftarrow 1$
         \STATE $f \longleftarrow \text{ fila vazia}$
         \STATE Adicionar $v$ na fila $f$.
-        \STATE Marca $v$ como visitado.
+        \STATE Marcar $v$ como visitado.
         \WHILE{$f$ não for vazia}
             \STATE Desenfileira $f$ em $v$.
             \STATE $o_i \longleftarrow v$
             \STATE $i \longleftarrow i + 1$
-            \FORALL{vértice $w$ adjacente a $v$, em ordem crescente de grau,}
+            \FORALL{vértice $w$ adjacente a $v$, em ordem crescente de grau,} \label{alg:rcm:adj}
                 \IF{$w$ ainda não foi visitado}
                     \STATE Adicionar $v$ na fila $f$.
                     \STATE Marca $w$ como visitado.
@@ -726,3 +725,47 @@ figura abaixo.
         \ENDIF
     \end{algorithmic}
 \end{algorithm}
+
+\section{Método Cuthill-McKee Reverso Paralelo}
+O laço iniciado na linha~\ref{alg:rcm:adj} do Algoritmo~\ref{alg:rcm} pode ser
+feito em paralelo ao utilizar um vetor para armazenar os vértices adjacentes a
+$v$, em ordem crescente de grau. Esse vetor é dividido e suas partes enviadas
+para os processadores. O algoritmo abaixo mostra essa modificação.
+\begin{algorithm}[hbt]
+    \caption{Pseudo-código de Cuthill-McKee Paralelo}
+    \label{alg:rcm}
+    \begin{algorithmic}[1]
+        \REQUIRE Grafo $G(A)$, um vértice inicial $v$ e número de processadores
+        $p$.
+        \ENSURE $o$, novo ordenamento dos vértices de $G(A)$.
+        \STATE $s \longleftarrow \text{divisão dos vértices de $G$ em $p$
+        partes}$
+        \FORALL{$s_j \in s$}
+            \STATE Enviar $s_j$ para processador $j$ que irá listar os vértices
+            adjacentes para cada vértice $w \in s_j$, em ordem crescente de grau
+            \STATE Receber e armazenar lista de vértices adjacentes
+        \ENDFOR
+        \STATE Marca todos os vértices como não visitados.
+        \STATE $o \longleftarrow \text{ vetor de zeros}$
+        \STATE $i \longleftarrow 1$
+        \STATE $f \longleftarrow \text{ fila vazia}$
+        \STATE Adicionar $v$ na fila $f$.
+        \STATE Marca $v$ como visitado.
+        \WHILE{$f$ não for vazia}
+            \STATE Desenfileira $f$ em $v$.
+            \STATE $o_i \longleftarrow v$
+            \STATE $i \longleftarrow i + 1$
+            \STATE $d \longleftarrow \text{divisão da lista dos vértices
+            adjacentes à $v$ em $p$ partes}$
+            \FORALL{$d_j \in d$}
+                \STATE Enviar $d_j$ para processador $j$ que irá verificar se os
+                vértices em $d_j$ foram ou não visitados.
+                \STATE Receber lista de vértices não visitados do processador
+                $j$.
+            \ENDFOR
+            \STATE Adicionar vértices não visitados na fila $f$.
+        \ENDWHILE
+    \end{algorithmic}
+\end{algorithm}
+
+A heurística para encontrar o vértice inicial não pode ser paralelizada.
