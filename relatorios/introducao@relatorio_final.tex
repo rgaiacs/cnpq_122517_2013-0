@@ -1,7 +1,7 @@
 \section{Introdução}
 Neste trabalho revisitou-se a heurística de reordenamento Cuthill-McKee Reversa,
 proposta em 1969, que busca um reordenamento para matrizes esparsas que reduza a
-largura de banda destas. O autor deste trabalho estudou em uma versão parelela
+largura de banda destas. O autor deste trabalho estudou por uma versão parelela
 dessa heurística e iniciou uma implementação dessa versão em C utilizando a
 biblioteca Open MPI.
 
@@ -752,7 +752,7 @@ para os processadores. O algoritmo abaixo mostra essa modificação.
         \STATE Adicionar $v$ na fila $f$.
         \STATE Marca $v$ como visitado.
         \WHILE{$f$ não for vazia}
-            \STATE Desenfileira $f$ em $v$.
+            \STATE Retira da fila $f$ em $v$.
             \STATE $o_i \longleftarrow v$
             \STATE $i \longleftarrow i + 1$
             \STATE $d \longleftarrow \text{divisão da lista dos vértices
